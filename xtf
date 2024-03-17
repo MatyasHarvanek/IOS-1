@@ -137,10 +137,10 @@ elif [ "$command" = "list-currency" ]; then
 
 elif [ "$command" = "status" ]; then
     if [ ! $# -gt 2 ]; then
-        writeArgumentError
+        writfilePahteArgumentError
     fi
     filterOut
-    data=$(echo "$data" | awk -v var="$traderName" 'BEGIN { FS = ";" } $1 == var { sum[$3] += $4 } END { for (group in sum) printf "%s: %.4f\n", group, sum[group] }' | awk '{print $0 | "sort"}')
+    data=$(echo "$data" | awk -v var="$traderName" 'BEGIN { FS = ";" } $1 == var { sum[$3] += $4 } END { for (group in sum) printf "%s : %.4f\n", group, sum[group] }' | awk '{print $0 | "sort"}')
     echo "$data"
 elif [ "$command" = "profit" ]; then
     if [ ! $# -gt 2 ]; then
@@ -157,8 +157,9 @@ elif [ "$command" = "profit" ]; then
             if(sum[group] > 0)
             {
                 sum[group] *= profitMulti / 100 + 1
+                sum[group] = int(sum[group] * 10000) / 10000
             }
-            printf "%s: %.4f\n", group, sum[group] 
+            printf "%s : %.4f\n", group, sum[group] 
         }
     }' | awk '{print $0 | "sort"}')
     echo "$data"
