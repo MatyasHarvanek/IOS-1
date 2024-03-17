@@ -1,0 +1,180 @@
+#!/bin/bash
+
+#TODO write error to stderr
+writeArgumentError() {
+    echo "Wrong argument syntax"
+    exit 1
+}
+
+filterOut() {
+    if [ "$aFilter" != "" ]; then
+        if [ "$(date -d "$aFilter" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" = "$aFilter" ]; then
+            data=$(echo "$data" | awk -v cutoff="$aFilter" -F ';' '$2 > cutoff')
+        else
+            writeArgumentError
+        fi
+    fi
+
+    if [ "$bFilter" != "" ]; then
+        if [ "$(date -d "$bFilter" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" = "$bFilter" ]; then
+            data=$(echo "$data" | awk -v cutoff="$bFilter" -F ';' '$2 < cutoff')
+        else
+            writeArgumentError
+        fi
+    fi
+
+    if [ "$cFilter" != "" ]; then
+        data=$(echo "$data" | awk -v var="$cFilter" -F ';' '$3 == var')
+    fi
+}
+
+addData() {
+    #write out error if target file does not exists
+    if [ ! -f "$fileName" ]; then
+        echo "Error: File '$fileName' does not exist."
+        exit 1
+    fi
+
+    #unzip traget file if filename has .gz extesion or it will read raw text file
+    if [[ "$fileName" == *.gz ]]; then
+        data+=$(gunzip -c "$fileName")
+    else
+        data+=$(cat "$fileName")
+    fi
+}
+
+data=""
+fileName=""
+traderName=""
+aFilter=""
+bFilter=""
+cFilter=""
+command=""
+argumentIndex=1
+skipNext=false
+
+for var in "$@"; do
+    if [ "$skipNext" = true ]; then
+        ((argumentIndex++))
+        skipNext=false
+        continue
+    fi
+    if [ "$var" = "-a" ]; then
+        skipNext=true
+        ((argumentIndex++))
+        aFilter="${!argumentIndex}"
+        continue
+    elif [ "$var" = "-b" ]; then
+        skipNext=true
+        ((argumentIndex++))
+        bFilter="${!argumentIndex}"
+        continue
+    elif [ "$var" = "-c" ]; then
+        skipNext=true
+        ((argumentIndex++))
+        cFilter="${!argumentIndex}"
+        continue
+    elif [[ "$var" == *.gz || "$var" == *.log ]]; then
+        fileName="$var"
+        addData
+    else
+        if [ "$command" == "" ]; then
+            command="$var"
+        fi
+        traderName="$var"
+    fi
+    ((argumentIndex++))
+done
+
+if [ "$traderName" = "$command" ]; then
+    command=""
+fi
+
+if [ "$traderName" == "" ]; then
+    writeArgumentError
+    exit 1
+fi
+
+# echo "aFilter $aFilter"
+# echo "bFilter $bFilter"
+# echo "cFilter $cFilter"
+# echo "command: $command"
+# echo "trader name: $traderName"
+# echo "file name: $fileName"
+
+export POSIXLY_CORRECT=yes
+export LC_NUMERIC=C
+if [ -z "$XTF_PROFIT" ]; then
+    export XTF_PROFIT=20
+fi
+
+#processing
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+
+    echo "TODO help write"
+
+elif [ "$command" = "list" ]; then
+    #write out error if count of arguments is lower than 3
+    if [ ! $# -gt 2 ]; then
+        writeArgumentError
+    fi
+    filterOut
+
+    #write filtered records depending on user name
+    data=$(echo "$data" | awk -v var="$traderName" -F ';' '$1 == var')
+    echo "$data"
+elif [ "$command" = "list-currency" ]; then
+
+    if [ ! $# -gt 2 ]; then
+        writeArgumentError
+        exit 1
+    fi
+
+    filterOut
+    data=$(echo "$data" | awk -v var="$traderName" -F ';' '$1 == var && !seen[$3]++ {print $3} ' | awk '{print $0 | "sort"}')
+    echo "$data"
+
+elif [ "$command" = "status" ]; then
+    if [ ! $# -gt 2 ]; then
+        writeArgumentError
+        exit 1
+    fi
+
+    filterOut
+    data=$(echo "$data" | awk -v var="$traderName" 'BEGIN { FS = ";" } $1 == var { sum[$3] += $4 } END { for (group in sum) printf "%s %.4f\n", group, sum[group] }' | awk '{print $0 | "sort"}')
+    echo "$data"
+elif [ "$command" = "profit" ]; then
+
+    if [ ! $# -gt 2 ]; then
+        writeArgumentError
+        exit 1
+    fi
+
+    filterOut
+    data=$(echo "$data" | awk -v var="$traderName" -v profitMulti="$XTF_PROFIT" '
+    BEGIN { FS = ";" }
+    $1 == var {
+        sum[$3] += $4 
+    } 
+    END {
+        for (group in sum){
+            if(sum[group] > 0)
+            {
+                sum[group] *= profitMulti / 100 + 1
+            }
+            printf "%s %.4f\n", group, sum[group] 
+        }
+    }' | awk '{print $0 | "sort"}')
+    echo "$data"
+else
+    #write out error if count of arguments is lower than 3
+    if [ ! $# -gt 1 ]; then
+        writeArgumentError
+        exit 1
+    fi
+
+    filterOut
+    #write filtered records depending on user name
+    data=$(echo "$data" | awk -v var="$traderName" -F ';' '$1 == var' | awk '{print $0 | "sort"}')
+    echo "$data"
+fi
