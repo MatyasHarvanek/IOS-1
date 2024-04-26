@@ -9,73 +9,80 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 
-int skyierCount = 10;
-int targetStopsMaxCount = 10;
-int targetStopsCount = 5;
+int finalSkyierCount = 10;
+int finalStopsCount = 5;
+int busCapacity = 5;
 
-int currentskier;
-int capacity = 5;
-
-int skyBusPid;
+pid_t *skyBusPid;
 
 int *currentLogNumber;
-int *currentSkiBusStop;
-int *currentNumberOfPassagers;
-int *delivered;
-bool *busIsInStop;
+int *currentSkiBusStopNumber;
+int *currentBusPassangersCount;
+int *deliveredSkiersCount;
+bool *finished = false; // used for ending skier proccesses
 
-sem_t *logSemaphor;
-sem_t *boardSemaphor;
+sem_t *logSemaphor;      // used for accesing currentLogNumber and for logging
+sem_t *boardSemaphor;    // used for limiting number of skiers stop checks
+sem_t **skiersSemaphors; // used for ensuring that every skier checks if bus is in his stop
 
-sem_t **checkSemaphor;
-
+/// @brief Returns random number with added seed offset
+/// @param min Inclusive min value
+/// @param max Inclusive max value
+/// @param offset OffsetForSeed
+/// @return Random number
 int getRandomNumber(int min, int max, int offset)
 {
     srand(time(NULL) + offset);
-    int randomNumber = rand() % (max - min + 1) + min;
-    return randomNumber;
+    return rand() % (max - min + 1) + min;
 }
 
+/// @brief Creates process for ski bus with logick
+/// @return 0 if it is parent proccess, 1 if it is child proccess
 int CreateBus()
 {
     skyBusPid = fork();
     if (skyBusPid == 0)
     {
+        // First log of ski bus
         sem_wait(logSemaphor);
         printf("%d: BUS: started \n", *currentLogNumber);
         sem_post(logSemaphor);
-        while (*delivered != skyierCount)
-        {
-            for (int i = 0; i < targetStopsCount + 1; i++)
-            {
 
-                usleep(getRandomNumber(0, 1000, 0));
-                if (i != targetStopsCount)
+        while (*deliveredSkiersCount != finalSkyierCount)
+        {
+            // Added one more stop for final stop
+            for (int i = 0; i < finalStopsCount + 1; i++)
+            {
+                usleep(getRandomNumber(0, 1000, i));
+
+                sem_wait(logSemaphor);
+                (*currentLogNumber)++;
+                if (i != finalStopsCount)
                 {
-                    sem_wait(logSemaphor);
-                    (*currentLogNumber)++;
                     printf("%d: BUS: arrived to %d\n", *currentLogNumber, i + 1);
-                    fflush(stdout);
-                    sem_post(logSemaphor);
                 }
                 else
                 {
-                    sem_wait(logSemaphor);
-                    (*currentLogNumber)++;
                     printf("%d: BUS: arrived to final\n", *currentLogNumber);
-                    fflush(stdout);
-                    sem_post(logSemaphor);
                 }
+                fflush(stdout);
+                sem_post(logSemaphor);
 
-                *currentSkiBusStop = i + 1;
-                for (int i = 0; i < skyierCount; i++)
+                *currentSkiBusStopNumber = i + 1;
+
+                // add number of skiers for stop checks
+                for (int i = 0; i < finalSkyierCount; i++)
                 {
                     sem_post(boardSemaphor);
                 }
-                sem_post(checkSemaphor[0]);
-                sem_wait(checkSemaphor[skyierCount]);
 
-                if (i != targetStopsCount)
+                // start skiers stop check sequencion
+                sem_post(skiersSemaphors[0]);
+
+                // wait for finish of skiers stop checks
+                sem_wait(skiersSemaphors[finalSkyierCount]);
+
+                if (i != finalStopsCount)
                 {
                     sem_wait(logSemaphor);
                     (*currentLogNumber)++;
@@ -85,7 +92,10 @@ int CreateBus()
                 }
             }
         }
-
+        sem_wait(logSemaphor);
+        (*currentLogNumber)++;
+        printf("%d: BUS: finished\n", *currentLogNumber);
+        sem_post(logSemaphor);
         return 1;
     }
     return 0;
@@ -94,21 +104,23 @@ int CreateBus()
 int main(int argc, char const *argv[])
 {
     currentLogNumber = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-    currentSkiBusStop = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-    currentNumberOfPassagers = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-    delivered = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-    busIsInStop = mmap(NULL, sizeof(bool), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    currentSkiBusStopNumber = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    finished = mmap(NULL, sizeof(bool), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    currentBusPassangersCount = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    deliveredSkiersCount = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
     logSemaphor = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
     boardSemaphor = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-    checkSemaphor = mmap(NULL, sizeof(sem_t *) * (skyierCount + 1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    skiersSemaphors = mmap(NULL, sizeof(sem_t *) * (finalSkyierCount + 1), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+    skyBusPid = malloc(sizeof(pid_t));
     *currentLogNumber = 1;
 
     sem_init(logSemaphor, 1, 1);
     sem_init(boardSemaphor, 1, 0);
-    for (int i = 0; i < skyierCount + 1; i++)
+
+    for (int i = 0; i < finalSkyierCount + 1; i++)
     {
-        checkSemaphor[i] = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
-        sem_init(checkSemaphor[i], 1, 0);
+        skiersSemaphors[i] = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
+        sem_init(skiersSemaphors[i], 1, 0);
     }
 
     if (CreateBus())
@@ -116,11 +128,11 @@ int main(int argc, char const *argv[])
         return 0;
     }
 
-    for (int i = 0; i < skyierCount; i++)
+    for (int i = 0; i < finalSkyierCount; i++)
     {
         int currentSkiPid = fork();
         int currentSkiIndex = i + 1;
-        int stop = getRandomNumber(1, targetStopsCount, currentSkiIndex);
+        int stop = getRandomNumber(1, finalStopsCount, currentSkiIndex);
         int semaphorIndex = i;
         bool boarded = false;
         bool left = false;
@@ -140,41 +152,38 @@ int main(int argc, char const *argv[])
             fflush(stdout);
             sem_post(logSemaphor);
 
-            while (1)
+            while (!*finished || !left)
             {
-
-                sem_wait(checkSemaphor[semaphorIndex]);
+                sem_wait(skiersSemaphors[semaphorIndex]);
                 sem_wait(boardSemaphor);
 
                 fflush(stdout);
-                // printf("L:%d board Semaphorxd %d \n", currentSkiIndex, stop);
-                if (stop == *currentSkiBusStop && !boarded && *currentNumberOfPassagers < capacity)
+                if (stop == *currentSkiBusStopNumber && !boarded && *currentBusPassangersCount < busCapacity)
                 {
                     sem_wait(logSemaphor);
                     (*currentLogNumber)++;
                     printf("%d: L:%d boarding \n", *currentLogNumber, currentSkiIndex);
-                    (*currentNumberOfPassagers)++;
+                    (*currentBusPassangersCount)++;
                     boarded = true;
                     sem_post(logSemaphor);
                 }
-                if (boarded && *currentSkiBusStop == targetStopsCount + 1 && !left)
+                if (boarded && *currentSkiBusStopNumber == finalStopsCount + 1 && !left)
                 {
                     sem_wait(logSemaphor);
                     (*currentLogNumber)++;
-                    (*currentNumberOfPassagers)--;
+                    (*currentBusPassangersCount)--;
                     printf("%d: L:%d going to ski \n", *currentLogNumber, currentSkiIndex);
-                    (*delivered)++;
+                    (*deliveredSkiersCount)++;
                     left = true;
                     sem_post(logSemaphor);
                 }
-
-                sem_post(checkSemaphor[semaphorIndex + 1]);
+                sem_post(skiersSemaphors[semaphorIndex + 1]);
             }
 
             return 0;
         }
     }
 
-    while (wait(NULL) > 0)
+    while (wait(skyBusPid) > 0)
         ;
 }
