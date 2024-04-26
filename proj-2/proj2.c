@@ -1,3 +1,8 @@
+//TODO
+//Napsat parsovani argumentu
+//napsat free funkci + otestovat s wallgreenem
+//Spustit testy pomoci .sh
+//prepsat pro sebe 
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -132,13 +137,14 @@ int main(int argc, char const *argv[])
     {
         int currentSkiPid = fork();
         int currentSkiIndex = i + 1;
-        int stop = getRandomNumber(1, finalStopsCount, currentSkiIndex);
+        int targetStop = getRandomNumber(1, finalStopsCount, currentSkiIndex);
         int semaphorIndex = i;
         bool boarded = false;
         bool left = false;
+
+        //check if it is child
         if (currentSkiPid == 0)
         {
-
             sem_wait(logSemaphor);
             (*currentLogNumber)++;
             printf("%d: L:%d started \n", *currentLogNumber, currentSkiIndex);
@@ -148,7 +154,7 @@ int main(int argc, char const *argv[])
             usleep(getRandomNumber(0, 1000, currentSkiIndex));
             sem_wait(logSemaphor);
             (*currentLogNumber)++;
-            printf("%d: L:%d arrived to %d \n", *currentLogNumber, currentSkiIndex, stop);
+            printf("%d: L:%d arrived to %d \n", *currentLogNumber, currentSkiIndex, targetStop);
             fflush(stdout);
             sem_post(logSemaphor);
 
@@ -158,7 +164,7 @@ int main(int argc, char const *argv[])
                 sem_wait(boardSemaphor);
 
                 fflush(stdout);
-                if (stop == *currentSkiBusStopNumber && !boarded && *currentBusPassangersCount < busCapacity)
+                if (targetStop == *currentSkiBusStopNumber && !boarded && *currentBusPassangersCount < busCapacity)
                 {
                     sem_wait(logSemaphor);
                     (*currentLogNumber)++;
@@ -179,7 +185,6 @@ int main(int argc, char const *argv[])
                 }
                 sem_post(skiersSemaphors[semaphorIndex + 1]);
             }
-
             return 0;
         }
     }
