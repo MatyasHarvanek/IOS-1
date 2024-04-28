@@ -1,0 +1,19 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/matyasharvanek/vut/ios/IOS-1/proj-2/proj2'
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _getRandomNumber, symObjAddr: 0x0, symBinAddr: 0x100002D88, symSize: 0x64 }
+  - { offsetInCU: 0x3F, offset: 0x3F, size: 0x8, addend: 0x0, symName: _finished, symObjAddr: 0x2C70, symBinAddr: 0x100008000, symSize: 0x0 }
+  - { offsetInCU: 0x6E, offset: 0x6E, size: 0x8, addend: 0x0, symName: _skibusPid, symBinAddr: 0x100008038, symSize: 0x0 }
+  - { offsetInCU: 0xB0, offset: 0xB0, size: 0x8, addend: 0x0, symName: _currentLogNumber, symBinAddr: 0x100008018, symSize: 0x0 }
+  - { offsetInCU: 0xCA, offset: 0xCA, size: 0x8, addend: 0x0, symName: _currentSkibusStopNumber, symBinAddr: 0x100008020, symSize: 0x0 }
+  - { offsetInCU: 0xDF, offset: 0xDF, size: 0x8, addend: 0x0, symName: _currentBusPassangersCount, symBinAddr: 0x100008010, symSize: 0x0 }
+  - { offsetInCU: 0xF4, offset: 0xF4, size: 0x8, addend: 0x0, symName: _deliveredSkiersCount, symBinAddr: 0x100008028, symSize: 0x0 }
+  - { offsetInCU: 0x109, offset: 0x109, size: 0x8, addend: 0x0, symName: _logSemaphor, symBinAddr: 0x100008030, symSize: 0x0 }
+  - { offsetInCU: 0x12E, offset: 0x12E, size: 0x8, addend: 0x0, symName: _boardSemaphor, symBinAddr: 0x100008008, symSize: 0x0 }
+  - { offsetInCU: 0x143, offset: 0x143, size: 0x8, addend: 0x0, symName: _skiersSemaphors, symBinAddr: 0x100008040, symSize: 0x0 }
+  - { offsetInCU: 0x152, offset: 0x152, size: 0x8, addend: 0x0, symName: _getRandomNumber, symObjAddr: 0x0, symBinAddr: 0x100002D88, symSize: 0x64 }
+  - { offsetInCU: 0x196, offset: 0x196, size: 0x8, addend: 0x0, symName: _CreateBus, symObjAddr: 0x64, symBinAddr: 0x100002DEC, symSize: 0x3F0 }
+  - { offsetInCU: 0x220, offset: 0x220, size: 0x8, addend: 0x0, symName: _freeResources, symObjAddr: 0x454, symBinAddr: 0x1000031DC, symSize: 0x10C }
+  - { offsetInCU: 0x260, offset: 0x260, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x560, symBinAddr: 0x1000032E8, symSize: 0xA90 }
+...
